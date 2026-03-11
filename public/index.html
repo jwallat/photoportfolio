@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photo Portfolio</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.css" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            background: #111;
+            color: #eee;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            min-height: 100%;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #111;
+            border-bottom: 1px solid #222;
+            padding: clamp(12px, 2vw, 20px) clamp(16px, 4vw, 48px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header h1 {
+            font-size: clamp(1rem, 2.5vw, 1.4rem);
+            font-weight: 300;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #ddd;
+        }
+
+        /* ── Masonry grid ── */
+        #gallery {
+            column-gap: 8px;
+            padding: 8px;
+        }
+
+        /* Mobile first: 1 column */
+        #gallery {
+            column-count: 1;
+        }
+
+        @media (min-width: 480px) {
+            #gallery {
+                column-count: 2;
+            }
+        }
+
+        @media (min-width: 900px) {
+            #gallery {
+                column-count: 3;
+            }
+        }
+
+        @media (min-width: 1400px) {
+            #gallery {
+                column-count: 4;
+            }
+        }
+
+        /* ── Gallery items ── */
+        .gallery-item {
+            display: block;
+            break-inside: avoid;
+            margin-bottom: 8px;
+            overflow: hidden;
+            border-radius: 3px;
+            cursor: zoom-in;
+        }
+
+        .gallery-item img {
+            display: block;
+            width: 100%;
+            height: auto;
+            transition: opacity 0.2s ease, transform 0.3s ease;
+            background: #1a1a1a;
+        }
+
+        .gallery-item img.loading {
+            opacity: 0;
+        }
+
+        .gallery-item:hover img {
+            opacity: 0.88;
+            transform: scale(1.01);
+        }
+
+        /* ── Empty / error states ── */
+        #status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            font-size: 1rem;
+            color: #555;
+            letter-spacing: 0.05em;
+        }
+
+        /* ── PhotoSwipe overrides ── */
+        .pswp {
+            --pswp-bg: #0e0e0e;
+        }
+
+        /* ── Footer ── */
+        footer {
+            margin-top: 32px;
+            padding: clamp(16px, 2vw, 24px) clamp(16px, 4vw, 48px);
+            border-top: 1px solid #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            color: #444;
+        }
+
+        footer a {
+            color: #555;
+            text-decoration: none;
+            text-transform: uppercase;
+            transition: color 0.15s;
+        }
+
+        footer a:hover {
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Photo Portfolio</h1>
+    </header>
+
+    <div id="status">Loading…</div>
+    <div id="gallery" style="display:none" class="pswp-gallery"></div>
+
+    <!-- PhotoSwipe v5 (ESM) -->
+    <div class="pswp" tabindex="-1"></div>
+
+    <footer>
+        <a href="https://example.com/impressum" target="_blank" rel="noopener">Impressum</a>
+        <a href="https://example.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>
+    </footer>
+
+    <script type="module">
+        import PhotoSwipeLightbox from 'https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe-lightbox.esm.js';
+
+        const gallery = document.getElementById('gallery');
+        const status = document.getElementById('status');
+
+        async function init() {
+            let images;
+            try {
+                const res = await fetch('/api/images');
+                if (!res.ok) throw new Error(`Server responded ${res.status}`);
+                images = await res.json();
+            } catch (err) {
+                status.textContent = 'Could not load photos.';
+                console.error(err);
+                return;
+            }
+
+            if (!images.length) {
+                status.textContent = 'No photos yet.';
+                return;
+            }
+
+            // Build gallery items
+            const fragment = document.createDocumentFragment();
+            for (const { filename, width, height } of images) {
+                const a = document.createElement('a');
+                a.href = `/photos/${encodeURIComponent(filename)}`;
+                a.className = 'gallery-item';
+                a.dataset.pswpWidth = width;
+                a.dataset.pswpHeight = height;
+
+                const img = document.createElement('img');
+                img.src = `/photos/${encodeURIComponent(filename)}`;
+                img.alt = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+                img.loading = 'lazy';
+                img.decoding = 'async';
+                img.classList.add('loading');
+
+                img.addEventListener('load', () => img.classList.remove('loading'), { once: true });
+                img.addEventListener('error', () => img.style.minHeight = '0', { once: true });
+
+                a.appendChild(img);
+                fragment.appendChild(a);
+            }
+
+            gallery.appendChild(fragment);
+            status.style.display = 'none';
+            gallery.style.display = '';
+
+            // Init PhotoSwipe lightbox
+            const lightbox = new PhotoSwipeLightbox({
+                gallery: '#gallery',
+                children: 'a.gallery-item',
+                pswpModule: () => import('https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.esm.js'),
+
+                // Mobile-friendly options
+                tapAction: 'toggle-controls',
+                doubleTapAction: 'zoom',
+                wheelToZoom: true,
+                padding: { top: 20, bottom: 20, left: 0, right: 0 },
+                bgOpacity: 0.95,
+            });
+
+            lightbox.init();
+        }
+
+        init();
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,12 @@
+services:
+  photoportfolio:
+    image: ghcr.io/jwallat/photoportfolio:latest
+    container_name: photoportfolio
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ${PHOTOS_PATH}:/photos:ro
+    environment:
+      - PHOTOS_DIR=/photos
+      - PORT=3000

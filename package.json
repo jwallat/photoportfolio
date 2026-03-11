@@ -1,0 +1,16 @@
+{
+    "name": "photoportfolio",
+    "version": "1.0.0",
+    "description": "Self-hosted photography portfolio",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "image-size": "^1.1.1"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}
