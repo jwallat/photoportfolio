@@ -23,6 +23,9 @@ fs.mkdirSync(CACHE_DIR, { recursive: true });
 // Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve PhotoSwipe from our own origin, so visitors' IPs aren't sent to a CDN
+app.use('/vendor/photoswipe', express.static(path.join(__dirname, 'node_modules/photoswipe/dist')));
+
 // Variants currently being generated, so concurrent requests share one job
 const inFlight = new Map();
 
