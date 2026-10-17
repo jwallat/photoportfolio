@@ -26,35 +26,41 @@ In the lightbox, photos with an info text get an ⓘ button next to the close bu
 
 ## Run locally
 
+Requires Node.js 20.9 or newer.
+
 ```bash
 npm install
-PHOTOS_DIR="/path/to/your/photos" node server.js
+PHOTOS_DIR="/path/to/your/photos" SITE_TITLE="Photo Portfolio" node server.js
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-`PHOTOS_DIR` defaults to `/photos` (the in-container path) if not set.
+Resized photos are cached in `.cache/` in the project folder. The page template is read once at startup, so restart the server after editing `public/index.html`.
 
 ---
 
-## Build & push a new release
+## Privacy
+
+Visitors never get the original files. The server makes resized WebP copies (800 px on the longest side for the gallery, 2560 px for the lightbox) and serves only those. Re-encoding drops all metadata, including EXIF, GPS location and camera serial numbers. The PhotoSwipe viewer is served from this server too, so no visitor data goes to a CDN.
+
+---
+
+## Releases
+
+Publishing a release on GitHub runs [the publish workflow](.github/workflows/docker-publish.yml), which builds the image and pushes it to GHCR. A release tagged `v1.2.0` produces the image tags `latest`, `1.2.0` and `1.2`.
+
+GHCR packages are private by default. Either make the package public in its settings on GitHub, or log in on every machine that pulls it:
 
 ```bash
-# Build
-docker build -t ghcr.io/jwallat/photoportfolio:latest .
-
-# Log in to GHCR (once per machine, uses a Personal Access Token with write:packages scope)
+# Personal Access Token with read:packages scope
 echo $CR_PAT | docker login ghcr.io -u jwallat --password-stdin
-
-# Push
-docker push ghcr.io/jwallat/photoportfolio:latest
 ```
 
-Tag a versioned release alongside `latest`:
+To build and push by hand instead (needs a token with `write:packages` scope):
 
 ```bash
-docker tag ghcr.io/jwallat/photoportfolio:latest ghcr.io/jwallat/photoportfolio:1.0.0
-docker push ghcr.io/jwallat/photoportfolio:1.0.0
+docker build -t ghcr.io/jwallat/photoportfolio:latest .
+docker push ghcr.io/jwallat/photoportfolio:latest
 ```
 
 ---
@@ -79,6 +85,14 @@ Then just:
 docker compose up -d
 ```
 
+The site title and footer links are set under `environment` in `docker-compose.yml` (see [Environment variables](#environment-variables)).
+
+The container runs as an unprivileged user with UID 1000, so the photos and text files must be readable by that user (or by everyone). Resized photos are kept in the `cache` volume, so they survive updates. Docker reports the container as `healthy` once the photos folder is readable:
+
+```bash
+docker ps --filter name=photoportfolio --format '{{.Status}}'
+```
+
 ### Update to a new image version
 
 ```bash
@@ -86,16 +100,25 @@ docker compose pull
 docker compose up -d
 ```
 
+### Test local changes in Docker
+
+Build the image from your working copy under the same name, and stop Compose from pulling the published one:
+
+```bash
+docker build -t ghcr.io/jwallat/photoportfolio:latest .
+docker compose up -d --pull never
+```
+
 ---
 
 ## Project structure
 
-```
-├── server.js          # Express server — /api/images, /photos/:file, static
+```text
+├── server.js                  # Express server: page, /api/images, /img/{grid,full}/:file, /healthz
 ├── public/
-│   ├── index.html     # Masonry gallery + PhotoSwipe viewer
-│   ├── impressum.html # Impressum (fill in personal details)
-│   └── privacy.html   # Privacy policy (fill in personal details)
+│   └── index.html             # Gallery, PhotoSwipe viewer, info texts; {{…}} filled in by the server
+├── .github/workflows/
+│   └── docker-publish.yml     # Builds and pushes the image when a release is published
 ├── Dockerfile
 ├── docker-compose.yml
 └── package.json
@@ -107,5 +130,11 @@ docker compose up -d
 
 | Variable | Default | Description |
 |---|---|---|
-| `PHOTOS_DIR` | `/photos` | Path to the photos directory inside the container |
+| `PHOTOS_DIR` | `/photos` | Path to the photos directory |
+| `CACHE_DIR` | `.cache/` in the project folder; `/cache` in the Docker image | Where resized photos are stored. Must be writable |
 | `PORT` | `3000` | Port the server listens on |
+| `SITE_TITLE` | `Photo Portfolio` | Shown in the header and the browser tab |
+| `IMPRESSUM_URL` | – | Adds an "Impressum" link to the footer |
+| `PRIVACY_URL` | – | Adds a "Privacy Policy" link to the footer |
+
+Without `IMPRESSUM_URL` and `PRIVACY_URL`, the page has no footer.
