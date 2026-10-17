@@ -128,6 +128,9 @@ async function getDimensions(file) {
     return entry;
 }
 
+// Natural, case-insensitive filename order: "IMG_2" before "IMG_10", "a" next to "B"
+const filenameOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
 // API: return list of images with the dimensions of their "full" variant
 app.get('/api/images', async (req, res) => {
     let files;
@@ -138,7 +141,9 @@ app.get('/api/images', async (req, res) => {
         return res.status(500).json({ error: 'Cannot read photos directory' });
     }
 
-    const photos = files.filter((file) => SUPPORTED_EXTS.has(path.extname(file).toLowerCase()));
+    const photos = files
+        .filter((file) => SUPPORTED_EXTS.has(path.extname(file).toLowerCase()))
+        .sort(filenameOrder.compare);
 
     // Forget photos that were removed from the directory
     for (const file of dimensionCache.keys()) {
