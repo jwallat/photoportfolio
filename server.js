@@ -19,6 +19,16 @@ const VARIANTS = {
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
+// Health check for Docker: healthy when the photos directory is readable
+app.get('/healthz', (req, res) => {
+    try {
+        fs.accessSync(PHOTOS_DIR, fs.constants.R_OK);
+        res.send('ok');
+    } catch {
+        res.status(503).send('photos directory not readable');
+    }
+});
+
 // Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
