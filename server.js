@@ -122,8 +122,20 @@ app.get('/api/images', async (req, res) => {
     res.json(images.filter(Boolean));
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Photoportfolio running on http://localhost:${PORT}`);
     console.log(`Serving photos from: ${PHOTOS_DIR}`);
     console.log(`Caching resized photos in: ${CACHE_DIR}`);
 });
+
+// As PID 1 in a container, Node ignores SIGTERM unless it is handled, which
+// makes `docker stop` wait for its 10s timeout and then kill the process
+function shutdown(signal) {
+    console.log(`Received ${signal}, shutting down`);
+    server.close(() => process.exit(0));
+    // Don't wait forever for slow clients
+    setTimeout(() => process.exit(0), 5000).unref();
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
