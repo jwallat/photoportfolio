@@ -1,19 +1,19 @@
 services:
   photoportfolio:
-    image: ghcr.io/jwallat/photoportfolio:latest
+    image: ${IMAGE:-ghcr.io/jwallat/photoportfolio:latest}
     container_name: photoportfolio
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
-      - ${PHOTOS_PATH}:/photos:ro
+      - ${PHOTOS_PATH:?Set PHOTOS_PATH in .env}:/photos:ro
       - cache:/cache
     environment:
       - PHOTOS_DIR=/photos
       - PORT=3000
-      - SITE_TITLE=Photo Portfolio
-      - IMPRESSUM_URL=https://example.com/impressum
-      - PRIVACY_URL=https://example.com/privacy
+      - SITE_TITLE=${SITE_TITLE:-Photo Portfolio}
+      - IMPRESSUM_URL=${IMPRESSUM_URL:-}
+      - PRIVACY_URL=${PRIVACY_URL:-}
 
 volumes:
   cache:

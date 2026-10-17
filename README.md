@@ -1,6 +1,6 @@
 # Photo Portfolio
 
-Self-hosted photography portfolio. Photos are served from a Nextcloud folder mounted read-only into the container. Drop a file in the folder — the next page load picks it up automatically.
+Self-hosted photography portfolio. Photos are served from any folder (e.g. a synced Nextcloud folder) mounted read-only into the container. Drop a file in the folder — the next page load picks it up automatically.
 
 ---
 
@@ -30,7 +30,7 @@ Requires Node.js 20.9 or newer.
 
 ```bash
 npm install
-PHOTOS_DIR="/path/to/your/photos" SITE_TITLE="Photo Portfolio" node server.js
+PHOTOS_DIR="/path/to/your/photos" SITE_TITLE="My Photos" node server.js
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
@@ -53,7 +53,7 @@ GHCR packages are private by default. Either make the package public in its sett
 
 ```bash
 # Personal Access Token with read:packages scope
-echo $CR_PAT | docker login ghcr.io -u jwallat --password-stdin
+echo $CR_PAT | docker login ghcr.io -u <your-github-username> --password-stdin
 ```
 
 To build and push by hand instead (needs a token with `write:packages` scope):
@@ -67,25 +67,28 @@ docker push ghcr.io/jwallat/photoportfolio:latest
 
 ## Deploy with Docker Compose
 
-Set `PHOTOS_PATH` to the absolute path of your Nextcloud photos folder on the host:
+Your settings live in a `.env` file next to `docker-compose.yml`, which Compose reads automatically. It is ignored by git, so personal details like your name and Impressum URL stay out of the repository:
 
 ```bash
-PHOTOS_PATH="/mnt/nextcloud/Photos" docker compose up -d
+cp .env.example .env
 ```
 
-Or export it in your shell / add it to a `.env` file next to `docker-compose.yml`:
+Set `PHOTOS_PATH` to the absolute path of your photos folder on the host, and optionally the site title and footer links (see [Environment variables](#environment-variables)):
 
 ```env
 PHOTOS_PATH=/mnt/nextcloud/Photos
+SITE_TITLE=My Photos
+IMPRESSUM_URL=https://example.com/impressum
+PRIVACY_URL=https://example.com/privacy
 ```
 
-Then just:
+Then:
 
 ```bash
 docker compose up -d
 ```
 
-The site title and footer links are set under `environment` in `docker-compose.yml` (see [Environment variables](#environment-variables)).
+To run an image from a different registry or fork, set `IMAGE` in `.env` as well.
 
 The container runs as an unprivileged user with UID 1000, so the photos and text files must be readable by that user (or by everyone). Resized photos are kept in the `cache` volume, so they survive updates. Docker reports the container as `healthy` once the photos folder is readable:
 
@@ -121,6 +124,7 @@ docker compose up -d --pull never
 │   └── docker-publish.yml     # Builds and pushes the image when a release is published
 ├── Dockerfile
 ├── docker-compose.yml
+├── .env.example               # Template for your personal settings in .env (not committed)
 └── package.json
 ```
 

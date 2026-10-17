@@ -2,6 +2,7 @@
     "name": "photoportfolio",
     "version": "1.0.0",
     "description": "Self-hosted photography portfolio",
+    "license": "MIT",
     "main": "server.js",
     "scripts": {
         "start": "node server.js"
