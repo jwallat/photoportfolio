@@ -105,11 +105,34 @@ app.get('/img/:variant/:filename', async (req, res) => {
     }
 });
 
+// Dimensions per filename, reused while the file's mtime and size are unchanged
+const dimensionCache = new Map();
+
+async function getDimensions(file) {
+    const filepath = path.join(PHOTOS_DIR, file);
+    const { mtimeMs, size } = await fs.promises.stat(filepath);
+    const cached = dimensionCache.get(file);
+    if (cached && cached.mtimeMs === mtimeMs && cached.size === size) return cached;
+
+    // autoOrient holds the dimensions after applying EXIF orientation,
+    // i.e. what the resized variants will actually be
+    const { autoOrient: { width, height } } = await sharp(filepath).metadata();
+    const scale = Math.min(1, VARIANTS.full / Math.max(width, height));
+    const entry = {
+        mtimeMs,
+        size,
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+    };
+    dimensionCache.set(file, entry);
+    return entry;
+}
+
 // API: return list of images with the dimensions of their "full" variant
 app.get('/api/images', async (req, res) => {
     let files;
     try {
-        files = fs.readdirSync(PHOTOS_DIR);
+        files = await fs.promises.readdir(PHOTOS_DIR);
     } catch (err) {
         console.error(`Cannot read photos directory "${PHOTOS_DIR}":`, err.message);
         return res.status(500).json({ error: 'Cannot read photos directory' });
@@ -117,17 +140,15 @@ app.get('/api/images', async (req, res) => {
 
     const photos = files.filter((file) => SUPPORTED_EXTS.has(path.extname(file).toLowerCase()));
 
+    // Forget photos that were removed from the directory
+    for (const file of dimensionCache.keys()) {
+        if (!photos.includes(file)) dimensionCache.delete(file);
+    }
+
     const images = await Promise.all(photos.map(async (file) => {
         try {
-            // autoOrient holds the dimensions after applying EXIF orientation,
-            // i.e. what the resized variants will actually be
-            const { autoOrient: { width, height } } = await sharp(path.join(PHOTOS_DIR, file)).metadata();
-            const scale = Math.min(1, VARIANTS.full / Math.max(width, height));
-            return {
-                filename: file,
-                width: Math.round(width * scale),
-                height: Math.round(height * scale),
-            };
+            const { width, height } = await getDimensions(file);
+            return { filename: file, width, height };
         } catch (err) {
             console.warn(`Skipping "${file}": could not read dimensions (${err.message})`);
             return null;
