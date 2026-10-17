@@ -2,7 +2,6 @@ const express = require('express');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const sizeOf = require('image-size');
 const sharp = require('sharp');
 
 const app = express();
@@ -73,7 +72,8 @@ app.get('/img/:variant/:filename', async (req, res) => {
     }
 
     try {
-        res.type('image/webp').sendFile(await getVariant(filepath, stat, variant));
+        // The cache path is built by us, so it's fine that it may live in a dot-directory
+        res.type('image/webp').sendFile(await getVariant(filepath, stat, variant), { dotfiles: 'allow' });
     } catch (err) {
         console.error(`Cannot resize "${filename}":`, err.message);
         res.status(500).send('Cannot process image');
@@ -81,7 +81,7 @@ app.get('/img/:variant/:filename', async (req, res) => {
 });
 
 // API: return list of images with the dimensions of their "full" variant
-app.get('/api/images', (req, res) => {
+app.get('/api/images', async (req, res) => {
     let files;
     try {
         files = fs.readdirSync(PHOTOS_DIR);
@@ -90,32 +90,26 @@ app.get('/api/images', (req, res) => {
         return res.status(500).json({ error: 'Cannot read photos directory' });
     }
 
-    const images = [];
+    const photos = files.filter((file) => SUPPORTED_EXTS.has(path.extname(file).toLowerCase()));
 
-    for (const file of files) {
-        const ext = path.extname(file).toLowerCase();
-        if (!SUPPORTED_EXTS.has(ext)) continue;
-
-        const filepath = path.join(PHOTOS_DIR, file);
+    const images = await Promise.all(photos.map(async (file) => {
         try {
-            const dimensions = sizeOf(filepath);
-            // EXIF orientations 5–8 rotate the image 90° or 270°, so width and
-            // height are swapped relative to what the browser will actually display.
-            const rotated = dimensions.orientation >= 5 && dimensions.orientation <= 8;
-            const width = rotated ? dimensions.height : dimensions.width;
-            const height = rotated ? dimensions.width : dimensions.height;
+            // autoOrient holds the dimensions after applying EXIF orientation,
+            // i.e. what the resized variants will actually be
+            const { autoOrient: { width, height } } = await sharp(path.join(PHOTOS_DIR, file)).metadata();
             const scale = Math.min(1, VARIANTS.full / Math.max(width, height));
-            images.push({
+            return {
                 filename: file,
                 width: Math.round(width * scale),
                 height: Math.round(height * scale),
-            });
+            };
         } catch (err) {
             console.warn(`Skipping "${file}": could not read dimensions (${err.message})`);
+            return null;
         }
-    }
+    }));
 
-    res.json(images);
+    res.json(images.filter(Boolean));
 });
 
 app.listen(PORT, () => {
