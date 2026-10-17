@@ -143,6 +143,42 @@
             --pswp-bg: #0e0e0e;
         }
 
+        /* ── Info text in the lightbox ── */
+        .pswp__button--info {
+            display: none;
+        }
+
+        .pswp--has-caption .pswp__button--info {
+            display: block;
+        }
+
+        .pswp__info-caption {
+            position: absolute;
+            left: 0;
+            right: 0;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 16px;
+            color: #aaa;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            text-align: center;
+            white-space: pre-line;
+            transition: opacity 0.2s ease;
+        }
+
+        /* Hidden copy used to measure how much room a text needs */
+        .pswp__info-measure {
+            top: 0;
+            visibility: hidden;
+        }
+
+        /* Get out of the way while zoomed in, or when the controls are hidden */
+        .pswp--zoomed-in .pswp__info-caption,
+        .pswp:not(.pswp--ui-visible) .pswp__info-caption {
+            opacity: 0;
+        }
+
         /* ── Footer ── */
         footer {
             margin-top: 32px;
@@ -190,8 +226,38 @@
         const gallery = document.getElementById('gallery');
         const status = document.getElementById('status');
 
-        // Gallery items in their original order, as { element, aspect }
+        // Gallery items in their original order, as { element, aspect, caption }
         const items = [];
+
+        // Info text below the photo in the lightbox, toggled with the ⓘ button.
+        // Stays on while swiping until it's toggled off again.
+        const PADDING = 20;
+        const CAPTION_GAP = 12;
+        let infoVisible = false;
+        let captionEl;
+        let measureEl;
+
+        // Room to reserve below a photo so its text fits without covering it
+        function captionSpace(caption) {
+            if (!infoVisible || !caption || !measureEl) return PADDING;
+            measureEl.textContent = caption;
+            return measureEl.offsetHeight + 2 * CAPTION_GAP;
+        }
+
+        function updateCaption(pswp) {
+            const slide = pswp.currSlide;
+            const caption = slide?.data.caption;
+            pswp.element.classList.toggle('pswp--has-caption', Boolean(caption));
+            captionEl.hidden = !(infoVisible && caption);
+            if (captionEl.hidden) return;
+
+            // Place the text right below the photo, which is centered in the
+            // area above the reserved space
+            const imageHeight = slide.height * slide.zoomLevels.initial;
+            const imageBottom = PADDING + (slide.panAreaSize.y + imageHeight) / 2;
+            captionEl.textContent = caption;
+            captionEl.style.top = `${Math.round(imageBottom + CAPTION_GAP)}px`;
+        }
 
         // 0 means justified rows (phones); must match the CSS breakpoints
         function columnCount() {
@@ -246,7 +312,7 @@
             }
 
             // Build gallery items
-            for (const { filename, width, height } of images) {
+            for (const { filename, width, height, caption } of images) {
                 const a = document.createElement('a');
                 a.href = `/img/full/${encodeURIComponent(filename)}`;
                 a.className = 'gallery-item';
@@ -270,7 +336,7 @@
                 img.addEventListener('error', () => img.style.minHeight = '0', { once: true });
 
                 a.appendChild(img);
-                items.push({ element: a, aspect });
+                items.push({ element: a, aspect, caption });
             }
 
             layout();
@@ -296,8 +362,66 @@
                 },
                 doubleTapAction: 'zoom',
                 wheelToZoom: true,
-                padding: { top: 20, bottom: 20, left: 0, right: 0 },
+                paddingFn: (viewportSize, itemData) => ({
+                    top: PADDING,
+                    bottom: captionSpace(itemData.caption),
+                    left: 0,
+                    right: 0,
+                }),
                 bgOpacity: 0.95,
+                // The info button takes the zoom button's place; zooming still
+                // works with double-tap, pinch and the mouse wheel
+                zoom: false,
+            });
+
+            lightbox.addFilter('itemData', (itemData, index) => {
+                itemData.caption = items[index].caption;
+                return itemData;
+            });
+
+            lightbox.on('uiRegister', () => {
+                const { pswp } = lightbox;
+
+                pswp.ui.registerElement({
+                    name: 'info',
+                    title: 'Info',
+                    order: 10,
+                    isButton: true,
+                    html: {
+                        isCustomSVG: true,
+                        inner: '<path fill-rule="evenodd" id="pswp__icn-info" d="M16 6a10 10 0 1 0 0 20 10 10 0 1 0 0-20zm0 2a8 8 0 1 1 0 16 8 8 0 1 1 0-16zm-1 3h2v2h-2zm0 3.5h2V21h-2z"/>',
+                        outlineID: 'pswp__icn-info',
+                    },
+                    onInit: (el) => el.setAttribute('aria-pressed', infoVisible),
+                    onClick: (event, el) => {
+                        infoVisible = !infoVisible;
+                        el.setAttribute('aria-pressed', infoVisible);
+                        // Recalculates the padding, which fires 'resize' and repositions the text
+                        pswp.updateSize(true);
+                    },
+                });
+
+                pswp.ui.registerElement({
+                    name: 'info-caption',
+                    appendTo: 'wrapper',
+                    onInit: (el) => {
+                        captionEl = el;
+                        el.hidden = true;
+                    },
+                });
+
+                pswp.ui.registerElement({
+                    name: 'info-measure',
+                    className: 'pswp__info-caption pswp__info-measure',
+                    appendTo: 'wrapper',
+                    onInit: (el) => {
+                        measureEl = el;
+                        el.setAttribute('aria-hidden', 'true');
+                    },
+                });
+
+                pswp.on('change', () => updateCaption(pswp));
+                pswp.on('resize', () => updateCaption(pswp));
             });
 
             lightbox.init();

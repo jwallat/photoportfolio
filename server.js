@@ -128,6 +128,20 @@ async function getDimensions(file) {
     return entry;
 }
 
+// Info texts per .txt filename, reused while the file's mtime and size are unchanged
+const captionCache = new Map();
+
+async function getCaption(txtFile) {
+    const filepath = path.join(PHOTOS_DIR, txtFile);
+    const { mtimeMs, size } = await fs.promises.stat(filepath);
+    const cached = captionCache.get(txtFile);
+    if (cached && cached.mtimeMs === mtimeMs && cached.size === size) return cached.text;
+
+    const text = (await fs.promises.readFile(filepath, 'utf8')).trim();
+    captionCache.set(txtFile, { mtimeMs, size, text });
+    return text;
+}
+
 // Natural, case-insensitive filename order: "IMG_2" before "IMG_10", "a" next to "B"
 const filenameOrder = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 
@@ -145,19 +159,39 @@ app.get('/api/images', async (req, res) => {
         .filter((file) => SUPPORTED_EXTS.has(path.extname(file).toLowerCase()))
         .sort(filenameOrder.compare);
 
-    // Forget photos that were removed from the directory
+    // Info text files, by the photo name they belong to: "DSCF3049.txt" → "DSCF3049"
+    const txtFiles = new Map(files
+        .filter((file) => path.extname(file).toLowerCase() === '.txt')
+        .map((file) => [path.parse(file).name, file]));
+
+    // Forget files that were removed from the directory
     for (const file of dimensionCache.keys()) {
         if (!photos.includes(file)) dimensionCache.delete(file);
     }
+    for (const file of captionCache.keys()) {
+        if (!files.includes(file)) captionCache.delete(file);
+    }
 
     const images = await Promise.all(photos.map(async (file) => {
+        let image;
         try {
             const { width, height } = await getDimensions(file);
-            return { filename: file, width, height };
+            image = { filename: file, width, height };
         } catch (err) {
             console.warn(`Skipping "${file}": could not read dimensions (${err.message})`);
             return null;
         }
+
+        const txtFile = txtFiles.get(path.parse(file).name);
+        if (txtFile) {
+            try {
+                const caption = await getCaption(txtFile);
+                if (caption) image.caption = caption;
+            } catch (err) {
+                console.warn(`Ignoring "${txtFile}": could not read it (${err.message})`);
+            }
+        }
+        return image;
     }));
 
     res.json(images.filter(Boolean));
