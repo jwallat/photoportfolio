@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const PHOTOS_DIR = process.env.PHOTOS_DIR || '/photos';
 const CACHE_DIR = process.env.CACHE_DIR || path.join(__dirname, '.cache');
+const SITE_TITLE = process.env.SITE_TITLE || 'Photo Portfolio';
 const SUPPORTED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
 // Resized variants served instead of the originals. Longest edge in pixels.
@@ -28,6 +29,20 @@ app.get('/healthz', (req, res) => {
         res.status(503).send('photos directory not readable');
     }
 });
+
+// Serve the page with site settings from the environment filled in
+const escapeHtml = (str) => str.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const footerLinks = [
+    ['Impressum', process.env.IMPRESSUM_URL],
+    ['Privacy Policy', process.env.PRIVACY_URL],
+]
+    .filter(([, url]) => url)
+    .map(([label, url]) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${label}</a>`);
+const indexHtml = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8')
+    .replaceAll('{{SITE_TITLE}}', escapeHtml(SITE_TITLE))
+    .replace('{{FOOTER}}', footerLinks.length ? `<footer>\n        ${footerLinks.join('\n        ')}\n    </footer>` : '');
+
+app.get(['/', '/index.html'], (req, res) => res.type('html').send(indexHtml));
 
 // Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));

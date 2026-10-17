@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Photo Portfolio</title>
+    <title>{{SITE_TITLE}}</title>
     <link rel="stylesheet" href="/vendor/photoswipe/photoswipe.css" />
     <style>
         *,
@@ -160,7 +160,7 @@
 <body>
 
     <header>
-        <h1>Photo Portfolio</h1>
+        <h1>{{SITE_TITLE}}</h1>
     </header>
 
     <div id="status">Loading…</div>
@@ -169,10 +169,7 @@
     <!-- PhotoSwipe v5 (ESM) -->
     <div class="pswp" tabindex="-1"></div>
 
-    <footer>
-        <a href="https://example.com/impressum" target="_blank" rel="noopener">Impressum</a>
-        <a href="https://example.com/privacy" target="_blank" rel="noopener">Privacy Policy</a>
-    </footer>
+    {{FOOTER}}
 
     <script type="module">
         import PhotoSwipeLightbox from '/vendor/photoswipe/photoswipe-lightbox.esm.min.js';

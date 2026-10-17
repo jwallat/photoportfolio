@@ -11,6 +11,9 @@ services:
     environment:
       - PHOTOS_DIR=/photos
       - PORT=3000
+      - SITE_TITLE=Photo Portfolio
+      - IMPRESSUM_URL=https://example.com/impressum
+      - PRIVACY_URL=https://example.com/privacy
 
 volumes:
   cache:
