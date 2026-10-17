@@ -188,13 +188,17 @@
             const fragment = document.createDocumentFragment();
             for (const { filename, width, height } of images) {
                 const a = document.createElement('a');
-                a.href = `/photos/${encodeURIComponent(filename)}`;
+                a.href = `/img/full/${encodeURIComponent(filename)}`;
                 a.className = 'gallery-item';
                 a.dataset.pswpWidth = width;
                 a.dataset.pswpHeight = height;
 
                 const img = document.createElement('img');
-                img.src = `/photos/${encodeURIComponent(filename)}`;
+                img.src = `/img/grid/${encodeURIComponent(filename)}`;
+                // Reserve the right space before loading, so lazy loading only
+                // fetches the thumbnails that are actually near the viewport
+                img.width = width;
+                img.height = height;
                 img.alt = filename.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
                 img.loading = 'lazy';
                 img.decoding = 'async';
