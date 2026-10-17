@@ -4,6 +4,26 @@ Self-hosted photography portfolio. Photos are served from a Nextcloud folder mou
 
 ---
 
+## Photos and info texts
+
+Supported formats are `.jpg`, `.jpeg`, `.png`, `.webp` and `.gif`. Photos are shown in filename order (natural and case-insensitive, so `IMG_2` comes before `IMG_10`). To control the order, prefix the filenames, e.g. `01-`, `02-`.
+
+To give a photo an info text, put a `.txt` file with the same name next to it:
+
+```text
+Photos/
+├── DSCF3049.JPG
+└── DSCF3049.txt    # "Sunrise over the harbour."
+```
+
+In the lightbox, photos with an info text get an ⓘ button next to the close button. It shows the text in light grey below the photo, and the text stays on while swiping through other photos until the button is pressed again.
+
+- The text is shown as plain text; line breaks are kept.
+- The extension may be in any case (`.txt` or `.TXT`); empty files are ignored.
+- New or edited texts appear on the next page load, without a restart.
+
+---
+
 ## Run locally
 
 ```bash
